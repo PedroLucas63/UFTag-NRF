@@ -26,8 +26,3 @@ void actBuzzOff() {
     noTone(ACT_PIN_BUZZER);
     buzzOffTimeMs = 0;
 }
-
-void actStopAll() {
-    actBuzzOff();
-    actLedOff();
-}
