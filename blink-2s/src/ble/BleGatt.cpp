@@ -3,10 +3,11 @@
 #include "actuator/led/ActLed.h"
 #include "actuator/buzzer/ActBuzz.h"
 #include <Arduino.h>
+#include "actuator/ActConfig.h"
 
 // begin() é chamado em gattServiceInit(), após Bluefruit.begin()
-static BLEService        serviceCmd(BLE_SVC_UUID);
-static BLECharacteristic characterCmd(BLE_CHR_UUID, BLEWrite | BLEWriteWithoutResponse, 4);
+static BLEService        serviceGatt(BLE_SVC_UUID);
+static BLECharacteristic characterGatt(BLE_CHR_UUID, BLEWrite | BLEWriteWithoutResponse, 4);
 
 static void gattWrite(
                     uint16_t           connHdl, 
@@ -42,6 +43,11 @@ static void gattWrite(
         actBuzzOff();
         actLedOff();
         break;
+    
+    case (CMD_ALERT):
+        actBuzzerPip(ACT_PIN_BUZZER, 10, 100, 900);
+        actLedBlinkN(ACT_PIN_LED_RED, 20, 100, 400);
+        break;
     default:
         Serial.printf("[GATT] Ação desconhecida: 0x%02X\n", action);
         break;
@@ -49,9 +55,14 @@ static void gattWrite(
 }
 
 void gattServiceInit() {
-    serviceCmd.begin();
-    characterCmd.setWriteCallback(gattWrite);
-    characterCmd.begin();
+    serviceGatt.begin();
+    characterGatt.setWriteCallback(gattWrite);
+    characterGatt.begin();
 
     Serial.println("[GATT] Service initialized");
+}
+
+
+BLEService& gattGetService(){
+    return serviceGatt;
 }

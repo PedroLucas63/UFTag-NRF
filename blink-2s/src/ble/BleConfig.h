@@ -17,4 +17,5 @@
 #define CMD_LED_BLINK           0x01    // [0x01, hi_ms, lo_ms, 0x00]
 #define CMD_BUZZ                0x02    // [0x02, hi_ms, lo_ms, 0x00]
 #define CMD_BOTH                0x03    // [0x03, hi_ms, lo_ms, 0x00]
+#define CMD_ALERT               0x04
 #define CMD_STOP                0xFF    // [0xFF, 0x00, 0x00, 0x00]
