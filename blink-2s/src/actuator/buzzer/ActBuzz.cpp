@@ -55,7 +55,7 @@ void actBuzzerPip(uint8_t pin, uint8_t times, uint16_t onMs, uint16_t offMs){
     pipOnMs = onMs;
     pipOffMs = offMs;
 
-    tone(pipPin, ACT_BUZZ_FREQ_HZ);''
+    tone(pipPin, ACT_BUZZ_FREQ_HZ);
     pipNextMs = millis() + onMs;
     pipState = PIP_ON;
 }

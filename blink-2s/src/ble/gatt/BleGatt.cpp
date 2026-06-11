@@ -1,13 +1,16 @@
 #include "BleGatt.h"
-#include "BleConfig.h"
+#include "../BleConfig.h"
 #include "actuator/led/ActLed.h"
 #include "actuator/buzzer/ActBuzz.h"
 #include <Arduino.h>
 #include "actuator/ActConfig.h"
+#include "ble/store/KeyStore.h"
+#include "ble/core/BleCore.h"
 
 // begin() é chamado em gattServiceInit(), após Bluefruit.begin()
 static BLEService        serviceGatt(BLE_SVC_UUID);
 static BLECharacteristic characterGatt(BLE_CHR_UUID, BLEWrite | BLEWriteWithoutResponse, 4);
+static BLECharacteristic characterKey(BLE_CHR_SETKEY_UUID, BLEWrite, KEY_LEN);
 
 static void gattWrite(
                     uint16_t           connHdl, 
@@ -54,10 +57,32 @@ static void gattWrite(
     }
 }
 
+static void keyWrite(
+                    uint16_t           connHdl, 
+                    BLECharacteristic* chr, 
+                    uint8_t*           data, 
+                    uint16_t           len
+){
+    (void) connHdl;
+    (void) chr;
+
+    if(len != KEY_LEN) return;
+
+    if(ksSave(data)){
+        Bluefruit.Advertising.stop();
+        bleAdvertisingStart();
+    }
+}
+
+
 void gattServiceInit() {
     serviceGatt.begin();
     characterGatt.setWriteCallback(gattWrite);
     characterGatt.begin();
+
+    characterKey.setPermission(SECMODE_ENC_WITH_MITM, SECMODE_NO_ACCESS); // Required paring and encripted conection
+    characterKey.setWriteCallback(keyWrite);
+    characterKey.begin();
 
     Serial.println("[GATT] Service initialized");
 }

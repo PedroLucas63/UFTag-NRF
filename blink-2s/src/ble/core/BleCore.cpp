@@ -1,9 +1,10 @@
 #include "BleCore.h"
-#include "BleConfig.h"
-#include "BleGatt.h"
+#include "../BleConfig.h"
+#include "../gatt/BleGatt.h"
 #include "actuator/led/ActLed.h"
 #include "actuator/buzzer/ActBuzz.h"
 #include "actuator/ActConfig.h"
+#include "ble/store/KeyStore.h"
 #include <bluefruit.h>
 #include <Arduino.h>
 
@@ -46,11 +47,8 @@ void bleInit() {
     setNameDevice();
     Bluefruit.setTxPower(BLE_TX_POWER_DBM);
 
-    // Segurança: "Just Works" — sem passkey (IO_CAPS_NONE)
-    // IMPORTANTE: IO_CAPS_NONE é incompatível com setPairPasskeyCallback()
-    Bluefruit.Security.setIOCaps(BLE_GAP_IO_CAPS_NONE);
+    Bluefruit.Security.setIOCaps(false, false, false);
     Bluefruit.Security.setMITM(false);
-    Bluefruit.Security.setBond(true);  // bond persistente na flash interna
     Bluefruit.Security.setPairCompleteCallback(onPairComplete);
 
     Bluefruit.Periph.setConnectCallback(onConnect);
@@ -69,15 +67,23 @@ void bleAdvertisingStart() {
     Bluefruit.Advertising.addTxPower();
     Bluefruit.Advertising.addService(gattGetService()); // UUID 128-bit do serviço
 
-    // Nome vai no Scan Response (evita ultrapassar 31 bytes no Advertisement)
-    Bluefruit.ScanResponse.addName();
-    Bluefruit.ScanResponse.addData();
+    Bluefruit.ScanResponse.addName();  // "UFTag" — 7 bytes
+
+    uint8_t pubKey[KEY_LEN];
+    if(ksGet(pubKey)){
+        uint8_t mfr[22];
+        mfr[0] = BLE_COMPANY_ID_LO;
+        mfr[1] = BLE_COMPANY_ID_HI;
+        memcpy(&mfr[2], pubKey, 20);
+
+        Bluefruit.ScanResponse.addManufacturerData(mfr, sizeof(mfr));
+    }
 
     // Estratégia fast/slow: 100ms por 30s → 500ms para economizar bateria
     Bluefruit.Advertising.restartOnDisconnect(true);
     Bluefruit.Advertising.setInterval(BLE_ADV_FAST_INTERVAL, BLE_ADV_SLOW_INTERVAL);
     Bluefruit.Advertising.setFastTimeout(BLE_ADV_FAST_TIMEOUT);
-    Bluefruit.Advertising.start(0); // 0 = sem timeout (advertise indefinidamente)
+    Bluefruit.Advertising.start(0); // 0 = sem timeout 
 
     Serial.println("[BLE] Advertising iniciado");
 }

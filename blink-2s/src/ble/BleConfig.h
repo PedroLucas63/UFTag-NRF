@@ -4,6 +4,14 @@
 
 #define BLE_SVC_UUID            "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
 #define BLE_CHR_UUID            "A1B2C3D4-E5F6-7890-ABCD-EF1234567891"
+#define BLE_CHR_SETKEY_UUID     "A1B2C3D4-E5F6-7890-ABCD-EF1234567892"  
+
+// ─── Tamanho da chave pública (Curve25519) ────────────────────────────────────
+#define BLE_PUB_KEY_LEN          32
+
+// ─── Tamanho da chave pública (Curve25519) ────────────────────────────────────
+#define BLE_COMPANY_ID_LO       0xFF
+#define BLE_COMPANY_ID_HI       0xFF
 
 // ─── Advertising ──────────────────────────────────────────────────────────────
 #define BLE_ADV_FAST_INTERVAL   160     // 100ms  (unidade: 0.625ms)
