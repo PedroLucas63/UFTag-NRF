@@ -2,9 +2,9 @@
 
 #define DEVICE_NAME "UFTag"
 
-#define BLE_SVC_UUID            "A1B2C3D4-E5F6-7890-ABCD-EF1234567890"
-#define BLE_CHR_UUID            "A1B2C3D4-E5F6-7890-ABCD-EF1234567891"
-#define BLE_CHR_SETKEY_UUID     "A1B2C3D4-E5F6-7890-ABCD-EF1234567892"  
+#define BLE_SVC_UUID            "0xFFF0"
+#define BLE_CHR_UUID            "0xFFF1"
+#define BLE_CHR_SETKEY_UUID     "0xFFF2"  
 
 // ─── Tamanho da chave pública (Curve25519) ────────────────────────────────────
 #define BLE_PUB_KEY_LEN          32

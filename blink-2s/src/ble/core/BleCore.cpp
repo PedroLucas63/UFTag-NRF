@@ -20,26 +20,41 @@ static void setNameDevice() {
 
 static void onConnect(uint16_t conn_hdl) {
     (void)conn_hdl;
-    Serial.println("[BLE] Dispositivo conectado");
-    actLedStart(900);
-    actBuzzerPip(ACT_PIN_BUZZER, 2, 400, 100);
 }
 
 static void onDisconnect(uint16_t conn_hdl, uint8_t reason) {
     (void)conn_hdl;
+    (void)reason;
     actLedStart(500);
     actBuzzStart(500);
     bleAdvertisingStart();
 }
 
 static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status) {
-    (void)conn_hdl;
+
     if (auth_status == 0) {
-        actLedStart(1400);
+        BLEConnection* conn = Bluefruit.Connection(conn_hdl);
+        if(conn != nullptr){
+            uint8_t ownAddres[6];
+            conn->getPeerAddr().addr;
+        }
+
+        actLedBlinkN(ACT_PIN_LED_RED, 3, 400, 100);
         actBuzzerPip(ACT_PIN_BUZZER, 3, 400, 100);
     } else {
         Serial.printf("[BLE] Falha no pareamento: 0x%02X\n", auth_status);
     }
+}
+
+static void onSecured(uint16_t conn_hdl) {
+    BLEConnection* conn = Bluefruit.Connection(conn_hdl);
+
+    if(conn == nullptr) return;
+    if(conn->bonded()){
+        actLedStart(1000);
+        actBuzzerPip(ACT_PIN_BUZZER, 2, 400, 100);
+    }
+    actLedStart(900);
 }
 
 void bleInit() {
@@ -48,7 +63,8 @@ void bleInit() {
     Bluefruit.setTxPower(BLE_TX_POWER_DBM);
 
     Bluefruit.Security.setIOCaps(false, false, false);
-    Bluefruit.Security.setMITM(false);
+    Bluefruit.Security.setMITM(true);
+    Bluefruit.Security.setSecuredCallback(onSecured);
     Bluefruit.Security.setPairCompleteCallback(onPairComplete);
 
     Bluefruit.Periph.setConnectCallback(onConnect);
@@ -61,20 +77,26 @@ void bleAdvertisingStart() {
     Bluefruit.Advertising.clearData();
     Bluefruit.ScanResponse.clearData();
 
-    // Payload do Advertisement (máx 31 bytes):
-    //   Flags (3) + TxPower (3) + UUID 128-bit (18) = 24 bytes ✓
+    // Flags (3) 
     Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-    Bluefruit.Advertising.addTxPower();
-    Bluefruit.Advertising.addService(gattGetService()); // UUID 128-bit do serviço
-
-    Bluefruit.ScanResponse.addName();  // "UFTag" — 7 bytes
+    // Bluefruit.Advertising.addTxPower();
+    // Bluefruit.Advertising.addService(gattGetService()); 
 
     uint8_t pubKey[KEY_LEN];
     if(ksGet(pubKey)){
-        uint8_t mfr[22];
+        uint8_t adv[26];
+        memcpy(&adv[0], pubKey, 26);
+        Bluefruit.Advertising.addData(1, adv, sizeof(adv));
+    }
+
+    // Nome do Dispositivo no Scan Response (~14 bytes)
+    Bluefruit.ScanResponse.addName();
+
+    if(ksGet(pubKey)){
+        uint8_t mfr[8];
         mfr[0] = BLE_COMPANY_ID_LO;
         mfr[1] = BLE_COMPANY_ID_HI;
-        memcpy(&mfr[2], pubKey, 20);
+        memcpy(&mfr[2], pubKey + 26, 6);
 
         Bluefruit.ScanResponse.addManufacturerData(mfr, sizeof(mfr));
     }
