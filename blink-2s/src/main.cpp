@@ -33,16 +33,7 @@ void setup()
     Serial.println("[DEBUG] Inicializando GATT Services...");
     gattServiceInit();
 
-    if (ksHasKey())
-    {
-        Serial.println("[DEBUG] Chave de acesso encontrada no KeyStore.");
-        bleAdvertisingStartNormal();
-    }
-    else
-    {
-        Serial.println("[DEBUG] Nenhuma chave de acesso encontrada no KeyStore.");
-        bleAdvertisingStartPairing();
-    }
+    bleAdvertisingSwitchType();
 
     Serial.println("UFTag - Setup completo e rodando!");
 }

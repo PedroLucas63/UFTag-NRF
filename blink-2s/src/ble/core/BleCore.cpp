@@ -45,11 +45,12 @@ static void onConnect(uint16_t conn_hdl)
 
 static void onDisconnect(uint16_t conn_hdl, uint8_t reason)
 {
+    Serial.printf("[BLE] Desconectado (reason: 0x%02X)\n", reason);
     (void)conn_hdl;
     (void)reason;
     actLedStart(500);
     // actBuzzStart(500);
-    bleAdvertisingStart();
+    bleAdvertisingSwitchType();
 }
 
 static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
@@ -148,6 +149,20 @@ void bleAdvertisingStart()
     Serial.println("[BLE] Advertising iniciado");
 }
 
+void bleAdvertisingSwitchType()
+{
+    if (ksHasKey())
+    {
+        Serial.println("[DEBUG] Chave de acesso encontrada no KeyStore.");
+        bleAdvertisingStartNormal();
+    }
+    else
+    {
+        Serial.println("[DEBUG] Nenhuma chave de acesso encontrada no KeyStore.");
+        bleAdvertisingStartPairing();
+    }
+}
+
 // --- MODO PAREAMENTO (Aguardando Chave) ---
 void bleAdvertisingStartPairing()
 {
@@ -160,8 +175,13 @@ void bleAdvertisingStartPairing()
     // Adiciona o serviço GATT que o celular vai usar para mandar a chave
     Bluefruit.Advertising.addService(gattGetService());
 
+    // Adiciona o Company ID para identificação na aplicação
+    Bluefruit.ScanResponse.addManufacturerData(MFR, sizeof(MFR));
+
+    // Estratégia: 100ms para ser achado logo, sem timeout (fica até o dono parear)
     Bluefruit.Advertising.restartOnDisconnect(true);
-    Bluefruit.Advertising.setInterval(160, 160); // Rápido (100ms) para ser achado logo
+    Bluefruit.Advertising.setInterval(
+        BLE_ADV_PAIRING_INTERVAL, BLE_ADV_PAIRING_INTERVAL); // Rápido (100ms) para ser achado logo
     Bluefruit.Advertising.start(0);
 
     Serial.println("[BLE] Advertising de PAREAMENTO iniciado");
@@ -176,9 +196,9 @@ void bleAdvertisingStartNormal()
     Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
     Bluefruit.Advertising.addName();
 
-    // Uma flag fictícia simples (ex: Manufacturer Data com 1 byte '0x01' significando "Estou Aqui")
-    uint8_t payload[] = {0x01};
-    Bluefruit.Advertising.addManufacturerData(payload, sizeof(payload));
+    //
+    // Adiciona o Company ID para identificação na aplicação
+    Bluefruit.ScanResponse.addManufacturerData(MFR, sizeof(MFR));
 
     Bluefruit.Advertising.restartOnDisconnect(true);
     Bluefruit.Advertising.setInterval(800, 800); // Lento (500ms) para economizar bateria
