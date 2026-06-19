@@ -4,8 +4,8 @@
 // ─── Pinos (nice!nano v2) ─────────────────────────────────────────────────────
 #define ACT_PIN_LED_RED         LED_BUILTIN 
 #define ACT_PIN_LED_BLUE        PIN_114     
-#define ACT_PIN_BUZZER          20          
-#define ACT_PIN_BUTTON          24       
+#define ACT_PIN_BUZZER          PIN_024          
+#define ACT_PIN_BUTTON          PIN_020       
 
 // ─── LED (ativo LOW no nice!nano) ────────────────────────────────────────────
 #define ACT_LED_ON              HIGH

@@ -31,7 +31,7 @@ void actBuzzTick() {
     }
 
     if(pipState == PIP_IDLE) return;
-    if(millis() > pipNextMs) return;
+    // if(millis() > pipNextMs) return;
 
     if(pipState == PIP_ON){
         noTone(pipPin);

@@ -7,20 +7,22 @@
 #include "ble/store/KeyStore.h"
 #include "actuator/ActConfig.h"
 
-void setup() {
+void setup()
+{
     Serial.begin(115200);
-    delay(2000); 
+    while (!Serial)
+        delay(10);
 
     Serial.println("\n--- [DEBUG] Iniciando UFTag ---");
 
     Serial.println("[DEBUG] Inicializando LEDs...");
     actLedInit();
-    
-    Serial.println("[DEBUG] Inicializando Button...");
-    btnInit();
 
-    Serial.println("[DEBUG] Inicializando Buzzer...");
-    actBuzzInit();
+    // Serial.println("[DEBUG] Inicializando Button...");
+    // btnInit();
+
+    // Serial.println("[DEBUG] Inicializando Buzzer...");
+    // actBuzzInit();
 
     Serial.println("[DEBUG] Inicializando KeyStore (Flash)...");
     ksInit();
@@ -31,14 +33,23 @@ void setup() {
     Serial.println("[DEBUG] Inicializando GATT Services...");
     gattServiceInit();
 
-    Serial.println("[DEBUG] Iniciando Advertising...");
-    bleAdvertisingStart();
+    if (ksHasKey())
+    {
+        Serial.println("[DEBUG] Chave de acesso encontrada no KeyStore.");
+        bleAdvertisingStartNormal();
+    }
+    else
+    {
+        Serial.println("[DEBUG] Nenhuma chave de acesso encontrada no KeyStore.");
+        bleAdvertisingStartPairing();
+    }
 
     Serial.println("UFTag - Setup completo e rodando!");
 }
 
-void loop() {
-    actBuzzTick();
+void loop()
+{
     actLedTick();
-    btnTick();
+    // actBuzzTick();
+    // btnTick();
 }

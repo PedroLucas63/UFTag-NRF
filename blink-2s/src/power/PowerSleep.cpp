@@ -25,7 +25,7 @@ void powerEnterSleep() {
     nrf_gpio_cfg_sense_input(
         ACT_PIN_BUTTON,
         NRF_GPIO_PIN_PULLDOWN,
-        NRF_GPIO_PIN_SENSE_HIGH
+        NRF_GPIO_PIN_SENSE_LOW
     );
 
     sd_power_system_off();
