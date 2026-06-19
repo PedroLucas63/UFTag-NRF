@@ -8,8 +8,11 @@
 #define ACT_PIN_BUTTON          24       
 
 // ─── LED (ativo LOW no nice!nano) ────────────────────────────────────────────
-#define ACT_LED_ON              LOW
-#define ACT_LED_OFF             HIGH
+#define ACT_LED_ON              HIGH
+#define ACT_LED_OFF             LOW
 
 // ─── Buzzer ───────────────────────────────────────────────────────────────────
 #define ACT_BUZZ_FREQ_HZ        2000        // 2kHz — tom audível padrão
+
+// ─── Button ───────────────────────────────────────────────────────────────────
+#define HOLD_TO_SLEEP_MS  5000

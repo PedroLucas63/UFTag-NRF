@@ -80,7 +80,7 @@ void bleAdvertisingStart() {
     // Flags (3) 
     Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
     // Bluefruit.Advertising.addTxPower();
-    // Bluefruit.Advertising.addService(gattGetService()); 
+    Bluefruit.Advertising.addService(gattGetService()); 
 
     uint8_t pubKey[KEY_LEN];
     if(ksGet(pubKey)){
