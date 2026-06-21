@@ -199,8 +199,7 @@ void bleAdvertisingStartNormal()
     {
         // ADVERTISING: 26 bytes (23 + 3)
         uint8_t mfrMain[26];
-        mfrMain[0] = BLE_COMPANY_ID_LO;
-        mfrMain[1] = BLE_COMPANY_ID_HI;
+        memcpy(&mfrMain[0], MFR, sizeof(MFR));
         mfrMain[2] = true ? 0x01 : 0x00; // Lost flag
 
         memcpy(&mfrMain[3], pubKey, 23);
@@ -209,12 +208,13 @@ void bleAdvertisingStartNormal()
 
         // SCAN RESPONSE: 11 bytes (2 + 9)
         uint8_t mfrScan[11];
-        mfrScan[0] = BLE_COMPANY_ID_LO;
-        mfrScan[1] = BLE_COMPANY_ID_HI;
-
+        memcpy(&mfrScan[0], UUID_RESPONSE, sizeof(UUID_RESPONSE));
         memcpy(&mfrScan[2], pubKey + 23, 9);
 
-        Bluefruit.ScanResponse.addManufacturerData(mfrScan, sizeof(mfrScan));
+        Bluefruit.ScanResponse.addData(
+            BLE_GAP_AD_TYPE_SERVICE_DATA,
+            mfrScan,
+            sizeof(mfrScan));
     }
 
     // Adicionar 16 bytes no Scan Response

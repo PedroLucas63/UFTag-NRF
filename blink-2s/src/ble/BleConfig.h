@@ -15,7 +15,9 @@
 // ─── ID da Empresa ────────────────────────────────────
 #define BLE_COMPANY_ID_LO 0xFF
 #define BLE_COMPANY_ID_HI 0xFF
+#define BLE_RESPONSE_COMPANY_ID_HI 0xAB
 constexpr uint8_t MFR[2] = {BLE_COMPANY_ID_LO, BLE_COMPANY_ID_HI};
+constexpr uint8_t UUID_RESPONSE[2] = {BLE_COMPANY_ID_LO, BLE_RESPONSE_COMPANY_ID_HI};
 
 // ─── Advertising ──────────────────────────────────────────────────────────────
 #define BLE_ADV_PAIRING_INTERVAL 160 // 100ms  (unidade: 0.625ms)

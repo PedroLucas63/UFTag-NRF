@@ -10,3 +10,4 @@ void ksInit();
 bool ksHasKey();
 bool ksGet(uint8_t out[KEY_LEN]);
 bool ksSave(const uint8_t key[KEY_LEN]);
+void ksRemove();

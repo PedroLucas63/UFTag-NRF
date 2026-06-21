@@ -84,6 +84,11 @@ static void keyWrite(
     if (ksSave(data))
     {
         Serial.println("[GATT] Nova chave salva com sucesso!");
+        for (int i = 0; i < KEY_LEN; i++)
+        {
+            Serial.printf("%02X", data[i]);
+        }
+        Serial.println();
 
         BLEConnection *conn = Bluefruit.Connection(connHdl);
         if (conn != nullptr)

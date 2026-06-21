@@ -51,6 +51,16 @@ bool ksGet(uint8_t out[KEY_LEN])
     return true;
 }
 
+void ksRemove()
+{
+    if (InternalFS.exists(FILE_PATH))
+    {
+        InternalFS.remove(FILE_PATH);
+    }
+    memset(publicKey, 0, KEY_LEN);
+    hasKey = false;
+}
+
 bool ksSave(const uint8_t key[KEY_LEN])
 {
     File file = InternalFS.open(FILE_PATH, Adafruit_LittleFS_Namespace::FILE_O_WRITE);
