@@ -38,22 +38,27 @@ static void gattWrite(
     switch (action)
     {
     case (CMD_LED_BLINK):
+        Serial.printf("[GATT] Ação: LED Blink  Duração: %dms\n", durationMs);
         actLedStart(durationMs);
         break;
     case (CMD_BUZZ):
-        actBuzzStart(durationMs);
+        Serial.printf("[GATT] Ação: Buzzer  Duração: %dms\n", durationMs);
+        // actBuzzStart(durationMs);
         break;
     case (CMD_BOTH):
+        Serial.printf("[GATT] Ação: LED e Buzzer  Duração: %dms\n", durationMs);
         actLedStart(durationMs);
-        actBuzzStart(durationMs);
+        // actBuzzStart(durationMs);
         break;
     case (CMD_STOP):
-        actBuzzOff();
+        Serial.println("[GATT] Ação: Parar tudo");
+        // actBuzzOff();
         actLedOff();
         break;
 
     case (CMD_ALERT):
-        actBuzzerPip(ACT_PIN_BUZZER, 10, 100, 900);
+        Serial.printf("[GATT] Ação: ALERTA MÁXIMO!  Duração: %dms\n", durationMs);
+        // actBuzzerPip(ACT_PIN_BUZZER, 10, 100, 900);
         actLedBlinkN(ACT_PIN_LED_RED, 20, 100, 400);
         break;
     default:
@@ -101,6 +106,7 @@ void gattServiceInit()
     characterId.write(deviceId, NRF_DEVICE_ID_LEN);
 
     // 2. Inicializa os Comandos
+    characterGatt.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Required paring and encripted conection
     characterGatt.setWriteCallback(gattWrite);
     characterGatt.begin();
 

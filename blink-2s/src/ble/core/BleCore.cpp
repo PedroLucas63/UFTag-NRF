@@ -24,18 +24,9 @@ static void onConnect(uint16_t conn_hdl)
     if (conn == nullptr)
         return;
 
-    // Aceita pareamento apenas do dono, rejeitando conexões de outros dispositivos
-    // TODO: E se o dono trocar de celular?
     if (ksHasKey())
     {
-        if (!conn->bonded())
-        {
-            Serial.println("[BLE] Intruso detectado! Desconectando...");
-            conn->disconnect();
-            return;
-        }
-
-        Serial.println("[BLE] Dispositivo pareado conectado.");
+        Serial.println("[BLE] Alguém conectou. Aguardando criptografia...");
     }
     else
     {
@@ -55,7 +46,6 @@ static void onDisconnect(uint16_t conn_hdl, uint8_t reason)
 
 static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
 {
-
     if (auth_status == 0)
     {
         BLEConnection *conn = Bluefruit.Connection(conn_hdl);
@@ -63,7 +53,6 @@ static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
         {
             uint8_t ownAddres[6];
             memcpy(ownAddres, conn->getPeerAddr().addr, 6);
-            conn->getPeerAddr().addr;
         }
 
         actLedBlinkN(ACT_PIN_LED_RED, 3, 400, 100);
@@ -81,13 +70,23 @@ static void onSecured(uint16_t conn_hdl)
 
     if (conn == nullptr)
         return;
-    if (conn->bonded())
+
+    if (ksHasKey())
     {
-        actLedBlinkN(ACT_PIN_LED_RED, 3, 1000, 100);
+        if (!conn->bonded())
+        {
+            Serial.println("[BLE] Intruso detectado! Desconectando...");
+            conn->disconnect();
+            return;
+        }
+
+        Serial.println("[BLE] Dono reconhecido! Conexão segura estabelecida.");
+        actLedBlinkN(ACT_PIN_LED_RED, 3, 750, 100);
         // actBuzzerPip(ACT_PIN_BUZZER, 2, 400, 100);
     }
     else
     {
+        Serial.println("[BLE] Conexão segura iniciada (Aguardando chave do novo dono...)");
         actLedBlinkN(ACT_PIN_LED_RED, 3, 500, 100);
     }
 }
@@ -194,15 +193,38 @@ void bleAdvertisingStartNormal()
     Bluefruit.ScanResponse.clearData();
 
     Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-    Bluefruit.Advertising.addName();
 
-    //
-    // Adiciona o Company ID para identificação na aplicação
-    Bluefruit.ScanResponse.addManufacturerData(MFR, sizeof(MFR));
+    uint8_t pubKey[KEY_LEN];
+    if (ksGet(pubKey))
+    {
+        // ADVERTISING: 26 bytes (23 + 3)
+        uint8_t mfrMain[26];
+        mfrMain[0] = BLE_COMPANY_ID_LO;
+        mfrMain[1] = BLE_COMPANY_ID_HI;
+        mfrMain[2] = true ? 0x01 : 0x00; // Lost flag
 
+        memcpy(&mfrMain[3], pubKey, 23);
+
+        Bluefruit.Advertising.addManufacturerData(mfrMain, sizeof(mfrMain));
+
+        // SCAN RESPONSE: 11 bytes (2 + 9)
+        uint8_t mfrScan[11];
+        mfrScan[0] = BLE_COMPANY_ID_LO;
+        mfrScan[1] = BLE_COMPANY_ID_HI;
+
+        memcpy(&mfrScan[2], pubKey + 23, 9);
+
+        Bluefruit.ScanResponse.addManufacturerData(mfrScan, sizeof(mfrScan));
+    }
+
+    // Adicionar 16 bytes no Scan Response
+    Bluefruit.ScanResponse.addName();
+
+    // Estratégia fast/slow: 500ms para economizar bateria
     Bluefruit.Advertising.restartOnDisconnect(true);
-    Bluefruit.Advertising.setInterval(800, 800); // Lento (500ms) para economizar bateria
+    Bluefruit.Advertising.setInterval(
+        BLE_ADV_SLOW_INTERVAL, BLE_ADV_SLOW_INTERVAL); // Lento (500ms) para economizar bateria
     Bluefruit.Advertising.start(0);
 
-    Serial.println("[BLE] Advertising NORMAL iniciado (Estou Aqui)");
+    Serial.println("[BLE] Advertising NORMAL iniciado");
 }
