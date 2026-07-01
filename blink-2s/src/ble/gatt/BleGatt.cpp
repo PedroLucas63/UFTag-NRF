@@ -14,6 +14,7 @@ static BLEService serviceGatt(BLE_SVC_UUID);
 static BLECharacteristic characterId(BLE_CHR_ID_UUID, BLERead, NRF_DEVICE_ID_LEN);
 static BLECharacteristic characterGatt(BLE_CHR_UUID, BLEWrite | BLEWriteWithoutResponse, 4);
 static BLECharacteristic characterKey(BLE_CHR_SETKEY_UUID, BLEWrite, KEY_LEN);
+static BLECharacteristic characterName(BLE_CHR_NAME_UUID, BLEWrite, NAME_LEN);
 
 static void gattWrite(
     uint16_t connHdl,
@@ -98,6 +99,38 @@ static void keyWrite(
     }
 }
 
+
+static void nameWrite(
+    uint16_t connHdl,
+    BLECharacteristic *chr,
+    uint8_t *data,
+    uint16_t len)
+{
+    (void)chr;
+
+    if (len == 0 || len > NAME_LEN)
+    {
+        Serial.println("[GATT] Erro: Tamanho do nome incorreto!");
+        return;
+    }
+
+    if (updateName(data, len))
+    {
+        Serial.println("[GATT] Novo nome salvo com sucesso!");
+        for (int i = 0; i < len; i++)
+        {
+            Serial.printf("%02X", data[i]);
+        }
+        Serial.println();
+
+        BLEConnection *conn = Bluefruit.Connection(connHdl);
+        if (conn != nullptr)
+        {
+            conn->disconnect();
+        }
+    }
+}
+
 void gattServiceInit()
 {
     serviceGatt.begin();
@@ -119,6 +152,11 @@ void gattServiceInit()
     characterKey.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Required paring and encripted conection
     characterKey.setWriteCallback(keyWrite);
     characterKey.begin();
+
+    // 3. Atualizacao do nome da TAG
+    characterName.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Required paring and encripted conection
+    characterName.setWriteCallback(nameWrite);
+    characterName.begin();
 
     Serial.println("[GATT] Service initialized");
 }

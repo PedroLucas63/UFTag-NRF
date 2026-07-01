@@ -8,6 +8,7 @@
 #define BLE_CHR_UUID 0xFFF1
 #define BLE_CHR_SETKEY_UUID 0xFFF2
 #define BLE_CHR_ID_UUID 0xFFF3
+#define BLE_CHR_NAME_UUID 0xFFF4
 
 // ─── Tamanho da chave pública (Curve25519) ────────────────────────────────────
 #define BLE_PUB_KEY_LEN 32

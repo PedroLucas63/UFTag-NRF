@@ -10,12 +10,21 @@
 
 static void setNameDevice()
 {
-    uint8_t mac[6];
-    Bluefruit.getAddr(mac);
+    char savedName[17];
+    if (ksGetName(savedName))
+    {
+        Serial.printf("[BLE] Nome carregado da flash: %s\n", savedName);
+        Bluefruit.setName(savedName);
+    }
+    else
+    {
+        uint8_t mac[6];
+        Bluefruit.getAddr(mac);
 
-    char name[16];
-    snprintf(name, sizeof(name), DEVICE_NAME "-%02X%02X%02X", mac[0], mac[1], mac[2]);
-    Bluefruit.setName(name);
+        char name[16];
+        snprintf(name, sizeof(name), DEVICE_NAME "-%02X%02X%02X", mac[0], mac[1], mac[2]);
+        Bluefruit.setName(name);
+    }
 }
 
 static void onConnect(uint16_t conn_hdl)

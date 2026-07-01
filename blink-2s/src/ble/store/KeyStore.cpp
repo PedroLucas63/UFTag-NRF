@@ -5,6 +5,7 @@
 using namespace Adafruit_LittleFS_Namespace;
 
 static const char *FILE_PATH = "/uftag_public_key.bin";
+static const char *NAME_FILE_PATH = "/uftag_device_name.bin";
 static uint8_t publicKey[KEY_LEN] = {0};
 static bool hasKey = false;
 
@@ -59,6 +60,7 @@ void ksRemove()
     }
     memset(publicKey, 0, KEY_LEN);
     hasKey = false;
+    ksRemoveName();
 }
 
 bool ksSave(const uint8_t key[KEY_LEN])
@@ -79,4 +81,50 @@ bool ksSave(const uint8_t key[KEY_LEN])
     hasKey = true;
 
     return true;
+}
+
+bool ksGetName(char out_name[17])
+{
+    if (!InternalFS.begin())
+    {
+        return false;
+    }
+
+    File file = InternalFS.open(NAME_FILE_PATH, Adafruit_LittleFS_Namespace::FILE_O_READ);
+    if (!file)
+    {
+        return false;
+    }
+
+    int bytesRead = file.read(out_name, 16);
+    file.close();
+
+    if (bytesRead > 0 && bytesRead <= 16)
+    {
+        out_name[bytesRead] = '\0';
+        return true;
+    }
+    return false;
+}
+
+bool ksSaveName(const uint8_t *name, uint16_t len)
+{
+    if (len > 16) return false;
+
+    File file = InternalFS.open(NAME_FILE_PATH, Adafruit_LittleFS_Namespace::FILE_O_WRITE);
+    if (!file)
+        return false;
+
+    uint16_t written = file.write(name, len);
+    file.close();
+
+    return (written == len);
+}
+
+void ksRemoveName()
+{
+    if (InternalFS.exists(NAME_FILE_PATH))
+    {
+        InternalFS.remove(NAME_FILE_PATH);
+    }
 }

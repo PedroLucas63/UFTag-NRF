@@ -27,8 +27,8 @@ void setup()
     Serial.println("[DEBUG] Inicializando KeyStore (Flash)...");
     ksInit();
 
-    Serial.println("[DEBUG] Removendo configuração");
-    ksRemove();
+    // Serial.println("[DEBUG] Removendo configuração");
+    // ksRemove(); // resetar as configurações de fábrica nos testes
 
     Serial.println("[DEBUG] Inicializando BLE Stack...");
     bleInit();
