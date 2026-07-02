@@ -15,6 +15,7 @@ static BLECharacteristic characterId(BLE_CHR_ID_UUID, BLERead, NRF_DEVICE_ID_LEN
 static BLECharacteristic characterGatt(BLE_CHR_UUID, BLEWrite | BLEWriteWithoutResponse, 4);
 static BLECharacteristic characterKey(BLE_CHR_SETKEY_UUID, BLEWrite, KEY_LEN);
 static BLECharacteristic characterName(BLE_CHR_NAME_UUID, BLEWrite, NAME_LEN);
+static BLECharacteristic characterLost(BLE_CHR_LOST_UUID, BLERead | BLEWrite, 1);
 
 static void gattWrite(
     uint16_t connHdl,
@@ -131,6 +132,26 @@ static void nameWrite(
     }
 }
 
+static void lostWrite(
+    uint16_t connHdl,
+    BLECharacteristic *chr,
+    uint8_t *data,
+    uint16_t len)
+{
+    (void)connHdl;
+    (void)chr;
+
+    if (len != 1)
+    {
+        Serial.println("[GATT] Erro: Tamanho inválido para lost flag!");
+        return;
+    }
+
+    bool newStatus = (data[0] != 0);
+    bleSetLostModeState(newStatus);
+}
+
+
 void gattServiceInit()
 {
     serviceGatt.begin();
@@ -158,10 +179,22 @@ void gattServiceInit()
     characterName.setWriteCallback(nameWrite);
     characterName.begin();
 
+
+    // 4. Modo Companio/Lost
+    characterLost.setPermission(SECMODE_ENC_NO_MITM, SECMODE_ENC_NO_MITM);
+    characterLost.setWriteCallback(lostWrite);
+    characterLost.begin();
+    characterLost.write8(ksGetLostState() ? 0x01 : 0x00);
+
     Serial.println("[GATT] Service initialized");
 }
 
 BLEService &gattGetService()
 {
     return serviceGatt;
+}
+
+void gattUpdateLostCharacteristic(bool active)
+{
+    characterLost.write8(active ? 0x01 : 0x00);
 }

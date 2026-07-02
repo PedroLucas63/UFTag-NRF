@@ -46,4 +46,5 @@ void loop()
     actLedTick();
     // actBuzzTick();
     // btnTick();
+    bleTick();
 }

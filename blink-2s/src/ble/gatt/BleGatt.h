@@ -5,3 +5,4 @@
 
 void        gattServiceInit();
 BLEService& gattGetService();   // retorna referência para o advertising incluir esse serviço
+void        gattUpdateLostCharacteristic(bool active);

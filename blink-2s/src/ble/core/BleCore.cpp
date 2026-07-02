@@ -8,6 +8,9 @@
 #include <bluefruit.h>
 #include <Arduino.h>
 
+static unsigned long lastCommunicationTime = 0;
+static bool lostModeActive = false;
+
 static void setNameDevice()
 {
     char savedName[17];
@@ -51,6 +54,10 @@ static void onDisconnect(uint16_t conn_hdl, uint8_t reason)
     actLedStart(500);
     // actBuzzStart(500);
     bleAdvertisingSwitchType();
+
+
+    // Inicia contagem do tempo a partir da desconexão
+    lastCommunicationTime = millis();
 }
 
 static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
@@ -98,6 +105,10 @@ static void onSecured(uint16_t conn_hdl)
         Serial.println("[BLE] Conexão segura iniciada (Aguardando chave do novo dono...)");
         actLedBlinkN(ACT_PIN_LED_RED, 3, 500, 100);
     }
+
+    // Conexão segura do dono reseta o tempo de comunicação e sai do modo perdido
+    lastCommunicationTime = millis();
+    bleSetLostModeState(false);
 }
 
 void bleInit()
@@ -113,6 +124,9 @@ void bleInit()
 
     Bluefruit.Periph.setConnectCallback(onConnect);
     Bluefruit.Periph.setDisconnectCallback(onDisconnect);
+
+    // Inicializa a variável com o valor persistido na flash
+    lostModeActive = ksGetLostState();
 
     Serial.println("[BLE] Stack initialized");
 }
@@ -209,7 +223,7 @@ void bleAdvertisingStartNormal()
         // ADVERTISING: 26 bytes (23 + 3)
         uint8_t mfrMain[26];
         memcpy(&mfrMain[0], MFR, sizeof(MFR));
-        mfrMain[2] = true ? 0x01 : 0x00; // Lost flag
+        mfrMain[2] = lostModeActive ? 0x01 : 0x00; // Lost flag
 
         memcpy(&mfrMain[3], pubKey, 23);
 
@@ -236,4 +250,44 @@ void bleAdvertisingStartNormal()
     Bluefruit.Advertising.start(0);
 
     Serial.println("[BLE] Advertising NORMAL iniciado");
+}
+
+
+bool bleIsLostModeActive()
+{
+    return lostModeActive;
+}
+
+void bleSetLostModeState(bool active)
+{
+    if (lostModeActive != active)
+    {
+        lostModeActive = active;
+        ksSaveLostState(active);
+        
+        // Atualiza a característica GATT
+        gattUpdateLostCharacteristic(active);
+
+        Serial.printf("[BLE] Modo Companio alterado para: %s\n", active ? "ATIVO" : "INATIVO");
+
+        // Se o dispositivo estiver desconectado, reiniciamos o advertising para atualizar a flag
+        if (!Bluefruit.connected())
+        {
+            Serial.println("[BLE] Reiniciando advertising com novo estado.");
+            bleAdvertisingStartNormal();
+        }
+    }
+}
+
+void bleTick()
+{
+    // Apenas monitora timeout se tiver um dono emparelhado e estiver desconectado
+    if (ksHasKey() && !Bluefruit.connected())
+    {
+        if (!lostModeActive && (millis() - lastCommunicationTime > BLE_COMPANION_TIMEOUT_MS))
+        {
+            Serial.println("[BLE] Timeout de comunicação excedido sem presença do dono!");
+            bleSetLostModeState(true);
+        }
+    }
 }

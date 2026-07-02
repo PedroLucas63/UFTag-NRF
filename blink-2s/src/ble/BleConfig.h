@@ -9,6 +9,7 @@
 #define BLE_CHR_SETKEY_UUID 0xFFF2
 #define BLE_CHR_ID_UUID 0xFFF3
 #define BLE_CHR_NAME_UUID 0xFFF4
+#define BLE_CHR_LOST_UUID 0xFFF5
 
 // ─── Tamanho da chave pública (Curve25519) ────────────────────────────────────
 #define BLE_PUB_KEY_LEN 32
@@ -35,3 +36,6 @@ constexpr uint8_t UUID_RESPONSE[2] = {BLE_COMPANY_ID_LO, BLE_RESPONSE_COMPANY_ID
 #define CMD_BOTH 0x03      // [0x03, hi_ms, lo_ms, 0x00]
 #define CMD_ALERT 0x04
 #define CMD_STOP 0xFF // [0xFF, 0x00, 0x00, 0x00]
+
+
+#define BLE_COMPANION_TIMEOUT_MS (15 * 60 * 1000) // 15 minutos (ou menor para testes)
