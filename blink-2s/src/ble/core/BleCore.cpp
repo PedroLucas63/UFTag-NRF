@@ -195,7 +195,7 @@ void bleAdvertisingStartPairing()
     Serial.println("[BLE] Advertising de PAREAMENTO iniciado");
 }
 
-// --- MODO NORMAL (Fictício "Estou Aqui") ---
+// --- MODO NORMAL ---
 void bleAdvertisingStartNormal()
 {
     Bluefruit.Advertising.clearData();

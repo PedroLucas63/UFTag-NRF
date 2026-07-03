@@ -56,11 +56,13 @@ static void gattWrite(
         // actBuzzOff();
         actLedOff();
         break;
-
     case (CMD_ALERT):
         Serial.printf("[GATT] Ação: ALERTA MÁXIMO!  Duração: %dms\n", durationMs);
         // actBuzzerPip(ACT_PIN_BUZZER, 10, 100, 900);
         actLedBlinkN(ACT_PIN_LED_RED, 20, 100, 400);
+        break;
+    case (CMD_OWNER):
+        Serial.println("[GATT] Ação: OWNER");
         break;
     default:
         Serial.printf("[GATT] Ação desconhecida: 0x%02X\n", action);
@@ -98,7 +100,6 @@ static void keyWrite(
         }
     }
 }
-
 
 static void nameWrite(
     uint16_t connHdl,
