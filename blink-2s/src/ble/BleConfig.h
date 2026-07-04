@@ -37,5 +37,4 @@ constexpr uint8_t UUID_RESPONSE[2] = {BLE_COMPANY_ID_LO, BLE_RESPONSE_COMPANY_ID
 #define CMD_ALERT 0x04
 #define CMD_STOP 0xFF // [0xFF, 0x00, 0x00, 0x00]
 
-
-#define BLE_COMPANION_TIMEOUT_MS (15 * 60 * 1000) // 15 minutos (ou menor para testes)
+#define BLE_COMPANION_TIMEOUT_MS (30 * 1000) 

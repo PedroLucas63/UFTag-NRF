@@ -9,7 +9,7 @@
 #include <Arduino.h>
 
 static unsigned long lastCommunicationTime = 0;
-static bool lostModeActive = false;
+static bool lostModeActive = true;
 
 static void setNameDevice()
 {
@@ -260,7 +260,7 @@ bool bleIsLostModeActive()
 
 void bleSetLostModeState(bool active)
 {
-    if (lostModeActive != active)
+    if (active)
     {
         lostModeActive = active;
         ksSaveLostState(active);
@@ -268,7 +268,22 @@ void bleSetLostModeState(bool active)
         // Atualiza a característica GATT
         gattUpdateLostCharacteristic(active);
 
-        Serial.printf("[BLE] Modo Companio alterado para: %s\n", active ? "ATIVO" : "INATIVO");
+        if (active)
+        {
+            Serial.println("\n==================================================");
+            Serial.println("[STATUS] !!! TAG DETECTADA FORA DE ALCANCE !!!");
+            Serial.println("[STATUS] A Tag UFTag acaba de entrar no MODO PERDIDO.");
+            Serial.println("[STATUS] Iniciando transmissao de pacotes com flag de busca ativa.");
+            Serial.println("==================================================\n");
+        }
+        else
+        {
+            Serial.println("\n==================================================");
+            Serial.println("[STATUS] !!! TAG ENCONTRADA / DONO PRESENTE !!!");
+            Serial.println("[STATUS] A Tag UFTag saiu do MODO PERDIDO.");
+            Serial.println("[STATUS] Retornando ao modo de transmissao normal.");
+            Serial.println("==================================================\n");
+        }
 
         // Se o dispositivo estiver desconectado, reiniciamos o advertising para atualizar a flag
         if (!Bluefruit.connected())
@@ -281,6 +296,20 @@ void bleSetLostModeState(bool active)
 
 void bleTick()
 {
+    static unsigned long lastDebugPrint = 0;
+    if (millis() - lastDebugPrint > 2000) // a cada 2 segundos
+    {
+        lastDebugPrint = millis();
+        Serial.printf("[DEBUG_TICK] HasKey: %s | Connected: %s | LostModeActive: %s | Uptime: %lu s | IdleTime: %lu s | Timeout: %u s\n",
+            ksHasKey() ? "SIM" : "NAO", 
+            Bluefruit.connected() ? "SIM" : "NAO", 
+            lostModeActive ? "SIM" : "NAO", 
+            millis() / 1000, 
+            (millis() - lastCommunicationTime) / 1000, 
+            (unsigned int)(BLE_COMPANION_TIMEOUT_MS / 1000));
+        Serial.printf( ksHasKey() && !Bluefruit.connected() ? "PERDIDO" : "NAO_PERDIDO");
+    }
+
     // Apenas monitora timeout se tiver um dono emparelhado e estiver desconectado
     if (ksHasKey() && !Bluefruit.connected())
     {
