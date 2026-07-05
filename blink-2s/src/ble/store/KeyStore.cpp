@@ -6,12 +6,9 @@ using namespace Adafruit_LittleFS_Namespace;
 
 static const char *FILE_PATH = "/uftag_public_key.bin";
 static const char *NAME_FILE_PATH = "/uftag_device_name.bin";
-static const char *LOST_FILE_PATH = "/uftag_lost_state.bin";
 
 static uint8_t publicKey[KEY_LEN] = {0};
 static bool hasKey = false;
-
-static bool lostState = false;
 
 void ksInit()
 {
@@ -42,17 +39,7 @@ void ksInit()
         memset(publicKey, 0, KEY_LEN);
     }
 
-    // Carrega o estado de lost da flash
-    File lostFile = InternalFS.open(LOST_FILE_PATH, Adafruit_LittleFS_Namespace::FILE_O_READ);
-    if (lostFile)
-    {
-        uint8_t temp = 0;
-        if (lostFile.read(&temp, 1) == 1)
-        {
-            lostState = (temp != 0);
-        }
-        lostFile.close();
-    }
+
 }
 
 bool ksHasKey()
@@ -78,11 +65,7 @@ void ksRemove()
     hasKey = false;
     ksRemoveName();
 
-    if (InternalFS.exists(LOST_FILE_PATH))
-    {
-        InternalFS.remove(LOST_FILE_PATH);
-    }
-    lostState = false;
+
 }
 
 bool ksSave(const uint8_t key[KEY_LEN])
@@ -152,19 +135,4 @@ void ksRemoveName()
 }
 
 
-bool ksGetLostState()
-{
-    return lostState;
-}
 
-void ksSaveLostState(bool state)
-{
-    lostState = state;
-    File file = InternalFS.open(LOST_FILE_PATH, Adafruit_LittleFS_Namespace::FILE_O_WRITE);
-    if (file)
-    {
-        uint8_t temp = state ? 1 : 0;
-        file.write(&temp, 1);
-        file.close();
-    }
-}

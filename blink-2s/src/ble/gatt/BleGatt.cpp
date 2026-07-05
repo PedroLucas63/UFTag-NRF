@@ -7,6 +7,7 @@
 #include "ble/store/KeyStore.h"
 #include "ble/core/BleCore.h"
 #include "nrf/NRFUtils.h"
+#include "state-machine/StateMachine.h"
 
 // begin() é chamado em gattServiceInit(), após Bluefruit.begin()
 static BLEService serviceGatt(BLE_SVC_UUID);
@@ -26,6 +27,8 @@ static void gattWrite(
     (void)connHdl;
     (void)chr;
 
+    bleResetLostModeTimer();
+
     if (len != 4)
     {
         Serial.println("[GATT] Invalid command");
@@ -39,32 +42,13 @@ static void gattWrite(
 
     switch (action)
     {
-    case (CMD_LED_BLINK):
-        Serial.printf("[GATT] Ação: LED Blink  Duração: %dms\n", durationMs);
-        actLedStart(durationMs);
-        break;
     case (CMD_BUZZ):
-        Serial.printf("[GATT] Ação: Buzzer  Duração: %dms\n", durationMs);
-        // actBuzzStart(durationMs);
+        updateState(StateMachine::BUZZING);
         break;
-    case (CMD_BOTH):
-        Serial.printf("[GATT] Ação: LED e Buzzer  Duração: %dms\n", durationMs);
-        actLedStart(durationMs);
-        // actBuzzStart(durationMs);
-        break;
-    case (CMD_STOP):
-        Serial.println("[GATT] Ação: Parar tudo");
-        // actBuzzOff();
-        actLedOff();
-        break;
-
-    case (CMD_ALERT):
-        Serial.printf("[GATT] Ação: ALERTA MÁXIMO!  Duração: %dms\n", durationMs);
-        // actBuzzerPip(ACT_PIN_BUZZER, 10, 100, 900);
-        actLedBlinkN(ACT_PIN_LED_RED, 20, 100, 400);
+    case (CMD_LOST):
+        bleSetLostModeState(true);
         break;
     default:
-        Serial.printf("[GATT] Ação desconhecida: 0x%02X\n", action);
         break;
     }
 }
@@ -76,6 +60,8 @@ static void keyWrite(
     uint16_t len)
 {
     (void)chr;
+
+    bleResetLostModeTimer();
 
     if (len != KEY_LEN)
     {
@@ -100,7 +86,6 @@ static void keyWrite(
     }
 }
 
-
 static void nameWrite(
     uint16_t connHdl,
     BLECharacteristic *chr,
@@ -108,6 +93,8 @@ static void nameWrite(
     uint16_t len)
 {
     (void)chr;
+
+    bleResetLostModeTimer();
 
     if (len == 0 || len > NAME_LEN)
     {
@@ -141,16 +128,14 @@ static void lostWrite(
     (void)connHdl;
     (void)chr;
 
-    if (len != 1)
+    bleResetLostModeTimer();
+
+    if (len == 1)
     {
-        Serial.println("[GATT] Erro: Tamanho inválido para lost flag!");
-        return;
+        bool active = (data[0] != 0);
+        bleSetLostModeState(active);
     }
-
-    bool newStatus = (data[0] != 0);
-    bleSetLostModeState(newStatus);
 }
-
 
 void gattServiceInit()
 {
@@ -165,26 +150,25 @@ void gattServiceInit()
     characterId.write(deviceId, NRF_DEVICE_ID_LEN);
 
     // 2. Inicializa os Comandos
-    characterGatt.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Required paring and encripted conection
+    characterGatt.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Requer pareamento e conexão criptografada
     characterGatt.setWriteCallback(gattWrite);
     characterGatt.begin();
 
     // 3. Inicializa a Chave (Requer pareamento)
-    characterKey.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Required paring and encripted conection
+    characterKey.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Requer pareamento e conexão criptografada
     characterKey.setWriteCallback(keyWrite);
     characterKey.begin();
 
-    // 3. Atualizacao do nome da TAG
-    characterName.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Required paring and encripted conection
+    // 4. Atualização do nome da TAG
+    characterName.setPermission(SECMODE_NO_ACCESS, SECMODE_ENC_NO_MITM); // Requer pareamento e conexão criptografada
     characterName.setWriteCallback(nameWrite);
     characterName.begin();
 
-
-    // 4. Modo Companio/Lost
+    // 5. Inicializa o Lost State
     characterLost.setPermission(SECMODE_ENC_NO_MITM, SECMODE_ENC_NO_MITM);
     characterLost.setWriteCallback(lostWrite);
     characterLost.begin();
-    characterLost.write8(ksGetLostState() ? 0x01 : 0x00);
+    characterLost.write8(bleIsLostModeActive() ? 0x01 : 0x00);
 
     Serial.println("[GATT] Service initialized");
 }

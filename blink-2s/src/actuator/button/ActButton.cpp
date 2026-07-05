@@ -1,8 +1,8 @@
-#include "ActButton.h"
+#include "actuator/button/ActButton.h"
 #include "actuator/led/ActLed.h"
+#include "actuator/ActConfig.h"
+#include "state-machine/StateMachine.h"
 #include <Arduino.h>
-#include "../ActConfig.h"
-#include "power/PowerSleep.h"
 
 static uint32_t pressedAt = 0;
 static bool btnWasDown = false;
@@ -14,24 +14,45 @@ void btnInit()
 
 void btnTick()
 {
-    bool down = (digitalRead(ACT_PIN_BUTTON) == HIGH);
+    bool isDown = (digitalRead(ACT_PIN_BUTTON) == LOW);
 
-    if (down && !btnWasDown)
+    if (currentState == StateMachine::DISABLED)
     {
-        Serial.println("[BTN] Pressionado");
-        pressedAt = millis();
-        btnWasDown = true;
-    }
-
-    if (!down && btnWasDown)
-    {
-        Serial.println("[BTN] Solto");
-        uint32_t held = millis() - pressedAt;
-        btnWasDown = false;
-
-        if (held >= HOLD_TO_SLEEP_MS)
+        if (isDown)
         {
-            Serial.println("[BTN] COLOCANDO PARA DORMIR!");
+            if (!btnWasDown)
+            {
+                pressedAt = millis();
+                btnWasDown = true;
+            }
+            else
+            {
+                uint32_t holdDuration = millis() - pressedAt;
+
+                if ((holdDuration % 200) < 100)
+                {
+                    actLedSetRed(true);
+                }
+                else
+                {
+                    actLedSetRed(false);
+                }
+
+                if (holdDuration >= 3000)
+                {
+                    actLedSetRed(false);
+                    btnWasDown = false;
+                    updateState(StateMachine::INIT);
+                }
+            }
+        }
+        else
+        {
+            if (btnWasDown)
+            {
+                actLedSetRed(false);
+                btnWasDown = false;
+            }
         }
     }
 }

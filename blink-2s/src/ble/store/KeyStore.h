@@ -15,6 +15,3 @@ void ksRemove();
 bool ksGetName(char out_name[17]);
 bool ksSaveName(const uint8_t *name, uint16_t len);
 void ksRemoveName();
-
-bool ksGetLostState();
-void ksSaveLostState(bool state);

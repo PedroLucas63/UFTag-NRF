@@ -4,8 +4,9 @@ void bleInit();
 void bleAdvertisingStart();
 void bleAdvertisingStartPairing();
 void bleAdvertisingStartNormal();
-void bleAdvertisingSwitchType();
+void bleAdvertisingSelectType();
 
 bool bleIsLostModeActive();
 void bleSetLostModeState(bool active);
+void bleResetLostModeTimer();
 void bleTick();

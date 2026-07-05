@@ -1,22 +1,34 @@
 #include "BleCore.h"
-#include "../BleConfig.h"
-#include "../gatt/BleGatt.h"
+#include "ble/BleConfig.h"
+#include "ble/gatt/BleGatt.h"
 #include "actuator/led/ActLed.h"
 #include "actuator/buzzer/ActBuzz.h"
 #include "actuator/ActConfig.h"
 #include "ble/store/KeyStore.h"
+#include "state-machine/StateMachine.h"
 #include <bluefruit.h>
+#include <services/BLEBas.h>
 #include <Arduino.h>
 
 static unsigned long lastCommunicationTime = 0;
-static bool lostModeActive = true;
+static bool lostModeActive = false;
+BLEBas blebas;
+
+static uint8_t readBatteryLevel()
+{
+    int raw = analogRead(4);
+    float voltage = raw * (3.6 / 1023.0) * 2.0;
+
+    if (voltage >= 4.15) return 100;
+    if (voltage <= 3.50) return 0;
+    return (uint8_t)((voltage - 3.50) * 100.0 / 0.65);
+}
 
 static void setNameDevice()
 {
     char savedName[17];
     if (ksGetName(savedName))
     {
-        Serial.printf("[BLE] Nome carregado da flash: %s\n", savedName);
         Bluefruit.setName(savedName);
     }
     else
@@ -35,29 +47,13 @@ static void onConnect(uint16_t conn_hdl)
     BLEConnection *conn = Bluefruit.Connection(conn_hdl);
     if (conn == nullptr)
         return;
-
-    if (ksHasKey())
-    {
-        Serial.println("[BLE] Alguém conectou. Aguardando criptografia...");
-    }
-    else
-    {
-        Serial.println("[BLE] Primeira conexão. Iniciando pareamento com o novo dono.");
-    }
 }
 
 static void onDisconnect(uint16_t conn_hdl, uint8_t reason)
 {
-    Serial.printf("[BLE] Desconectado (reason: 0x%02X)\n", reason);
     (void)conn_hdl;
     (void)reason;
-    actLedStart(500);
-    // actBuzzStart(500);
-    bleAdvertisingSwitchType();
-
-
-    // Inicia contagem do tempo a partir da desconexão
-    lastCommunicationTime = millis();
+    bleAdvertisingSelectType();
 }
 
 static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
@@ -70,13 +66,6 @@ static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
             uint8_t ownAddres[6];
             memcpy(ownAddres, conn->getPeerAddr().addr, 6);
         }
-
-        actLedBlinkN(ACT_PIN_LED_RED, 3, 400, 100);
-        // actBuzzerPip(ACT_PIN_BUZZER, 3, 400, 100);
-    }
-    else
-    {
-        Serial.printf("[BLE] Falha no pareamento: 0x%02X\n", auth_status);
     }
 }
 
@@ -87,26 +76,13 @@ static void onSecured(uint16_t conn_hdl)
     if (conn == nullptr)
         return;
 
-    if (ksHasKey())
+    if (ksHasKey() && !conn->bonded())
     {
-        if (!conn->bonded())
-        {
-            Serial.println("[BLE] Intruso detectado! Desconectando...");
-            conn->disconnect();
-            return;
-        }
-
-        Serial.println("[BLE] Dono reconhecido! Conexão segura estabelecida.");
-        actLedBlinkN(ACT_PIN_LED_RED, 3, 750, 100);
-        // actBuzzerPip(ACT_PIN_BUZZER, 2, 400, 100);
-    }
-    else
-    {
-        Serial.println("[BLE] Conexão segura iniciada (Aguardando chave do novo dono...)");
-        actLedBlinkN(ACT_PIN_LED_RED, 3, 500, 100);
+        conn->disconnect();
+        return;
     }
 
-    // Conexão segura do dono reseta o tempo de comunicação e sai do modo perdido
+    updateState(StateMachine::CONNECTED);
     lastCommunicationTime = millis();
     bleSetLostModeState(false);
 }
@@ -125,63 +101,28 @@ void bleInit()
     Bluefruit.Periph.setConnectCallback(onConnect);
     Bluefruit.Periph.setDisconnectCallback(onDisconnect);
 
-    // Inicializa a variável com o valor persistido na flash
-    lostModeActive = ksGetLostState();
+    // Inicializa o pino de leitura da bateria
+    pinMode(4, INPUT);
+
+    // Inicializa e expõe o Battery Service (GATT)
+    blebas.begin();
+    blebas.write(readBatteryLevel());
+
+    lostModeActive = false;
+    lastCommunicationTime = millis();
 
     Serial.println("[BLE] Stack initialized");
 }
 
-void bleAdvertisingStart()
-{
-    Bluefruit.Advertising.clearData();
-    Bluefruit.ScanResponse.clearData();
-
-    // Flags (3)
-    Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
-    // Bluefruit.Advertising.addTxPower();
-    Bluefruit.Advertising.addService(gattGetService());
-
-    uint8_t pubKey[KEY_LEN];
-    if (ksGet(pubKey))
-    {
-        uint8_t adv[26];
-        memcpy(&adv[0], pubKey, 26);
-        Bluefruit.Advertising.addData(1, adv, sizeof(adv));
-    }
-
-    // Nome do Dispositivo no Scan Response (~14 bytes)
-    Bluefruit.ScanResponse.addName();
-
-    if (ksGet(pubKey))
-    {
-        uint8_t mfr[8];
-        mfr[0] = BLE_COMPANY_ID_LO;
-        mfr[1] = BLE_COMPANY_ID_HI;
-        memcpy(&mfr[2], pubKey + 26, 6);
-
-        Bluefruit.ScanResponse.addManufacturerData(mfr, sizeof(mfr));
-    }
-
-    // Estratégia fast/slow: 100ms por 30s → 500ms para economizar bateria
-    Bluefruit.Advertising.restartOnDisconnect(true);
-    Bluefruit.Advertising.setInterval(BLE_ADV_FAST_INTERVAL, BLE_ADV_SLOW_INTERVAL);
-    Bluefruit.Advertising.setFastTimeout(BLE_ADV_FAST_TIMEOUT);
-    Bluefruit.Advertising.start(0); // 0 = sem timeout
-
-    Serial.println("[BLE] Advertising iniciado");
-}
-
-void bleAdvertisingSwitchType()
+void bleAdvertisingSelectType()
 {
     if (ksHasKey())
     {
-        Serial.println("[DEBUG] Chave de acesso encontrada no KeyStore.");
-        bleAdvertisingStartNormal();
+        updateState(StateMachine::ADVERTISING);
     }
     else
     {
-        Serial.println("[DEBUG] Nenhuma chave de acesso encontrada no KeyStore.");
-        bleAdvertisingStartPairing();
+        updateState(StateMachine::PAIRING);
     }
 }
 
@@ -194,22 +135,20 @@ void bleAdvertisingStartPairing()
     Bluefruit.Advertising.addFlags(BLE_GAP_ADV_FLAGS_LE_ONLY_GENERAL_DISC_MODE);
     Bluefruit.Advertising.addName();
 
-    // Adiciona o serviço GATT que o celular vai usar para mandar a chave
     Bluefruit.Advertising.addService(gattGetService());
 
-    // Adiciona o Company ID para identificação na aplicação
+    // Também anuncia o Battery Service
+    Bluefruit.Advertising.addService(blebas);
+
     Bluefruit.ScanResponse.addManufacturerData(MFR, sizeof(MFR));
 
-    // Estratégia: 100ms para ser achado logo, sem timeout (fica até o dono parear)
     Bluefruit.Advertising.restartOnDisconnect(true);
     Bluefruit.Advertising.setInterval(
-        BLE_ADV_PAIRING_INTERVAL, BLE_ADV_PAIRING_INTERVAL); // Rápido (100ms) para ser achado logo
+        BLE_ADV_PAIRING_INTERVAL, BLE_ADV_PAIRING_INTERVAL);
     Bluefruit.Advertising.start(0);
-
-    Serial.println("[BLE] Advertising de PAREAMENTO iniciado");
 }
 
-// --- MODO NORMAL (Fictício "Estou Aqui") ---
+// --- MODO NORMAL ---
 void bleAdvertisingStartNormal()
 {
     Bluefruit.Advertising.clearData();
@@ -229,10 +168,12 @@ void bleAdvertisingStartNormal()
 
         Bluefruit.Advertising.addManufacturerData(mfrMain, sizeof(mfrMain));
 
-        // SCAN RESPONSE: 11 bytes (2 + 9)
-        uint8_t mfrScan[11];
+        // SCAN RESPONSE: 12 bytes (2 + 1 + 9)
+        // [UUID_RESPONSE (2b), Battery Level (1b), Remaining pubKey (9b)]
+        uint8_t mfrScan[12];
         memcpy(&mfrScan[0], UUID_RESPONSE, sizeof(UUID_RESPONSE));
-        memcpy(&mfrScan[2], pubKey + 23, 9);
+        mfrScan[2] = readBatteryLevel(); // Adiciona o nível de bateria
+        memcpy(&mfrScan[3], pubKey + 23, 9);
 
         Bluefruit.ScanResponse.addData(
             BLE_GAP_AD_TYPE_SERVICE_DATA,
@@ -240,18 +181,15 @@ void bleAdvertisingStartNormal()
             sizeof(mfrScan));
     }
 
-    // Adicionar 16 bytes no Scan Response
+    // Adiciona o nome do dispositivo no Scan Response
     Bluefruit.ScanResponse.addName();
 
-    // Estratégia fast/slow: 500ms para economizar bateria
+    // Estrategia fast/slow: 1s para economizar bateria
     Bluefruit.Advertising.restartOnDisconnect(true);
     Bluefruit.Advertising.setInterval(
-        BLE_ADV_SLOW_INTERVAL, BLE_ADV_SLOW_INTERVAL); // Lento (500ms) para economizar bateria
+        BLE_ADV_SLOW_INTERVAL, BLE_ADV_SLOW_INTERVAL); // Lento (1s) para economizar bateria
     Bluefruit.Advertising.start(0);
-
-    Serial.println("[BLE] Advertising NORMAL iniciado");
 }
-
 
 bool bleIsLostModeActive()
 {
@@ -260,62 +198,46 @@ bool bleIsLostModeActive()
 
 void bleSetLostModeState(bool active)
 {
-    if (active)
+    lostModeActive = active;
+    gattUpdateLostCharacteristic(active);
+
+    if (!Bluefruit.connected())
     {
-        lostModeActive = active;
-        ksSaveLostState(active);
-        
-        // Atualiza a característica GATT
-        gattUpdateLostCharacteristic(active);
+        bleAdvertisingStartNormal();
+    }
+}
 
-        if (active)
-        {
-            Serial.println("\n==================================================");
-            Serial.println("[STATUS] !!! TAG DETECTADA FORA DE ALCANCE !!!");
-            Serial.println("[STATUS] A Tag UFTag acaba de entrar no MODO PERDIDO.");
-            Serial.println("[STATUS] Iniciando transmissao de pacotes com flag de busca ativa.");
-            Serial.println("==================================================\n");
-        }
-        else
-        {
-            Serial.println("\n==================================================");
-            Serial.println("[STATUS] !!! TAG ENCONTRADA / DONO PRESENTE !!!");
-            Serial.println("[STATUS] A Tag UFTag saiu do MODO PERDIDO.");
-            Serial.println("[STATUS] Retornando ao modo de transmissao normal.");
-            Serial.println("==================================================\n");
-        }
-
-        // Se o dispositivo estiver desconectado, reiniciamos o advertising para atualizar a flag
-        if (!Bluefruit.connected())
-        {
-            Serial.println("[BLE] Reiniciando advertising com novo estado.");
-            bleAdvertisingStartNormal();
-        }
+void bleResetLostModeTimer()
+{
+    lastCommunicationTime = millis();
+    if (lostModeActive)
+    {
+        bleSetLostModeState(false);
     }
 }
 
 void bleTick()
 {
-    static unsigned long lastDebugPrint = 0;
-    if (millis() - lastDebugPrint > 2000) // a cada 2 segundos
+    // Atualiza periodicamente o serviço de bateria (a cada 60 segundos)
+    static unsigned long lastBatteryUpdate = 0;
+    if (millis() - lastBatteryUpdate > 60000)
     {
-        lastDebugPrint = millis();
-        Serial.printf("[DEBUG_TICK] HasKey: %s | Connected: %s | LostModeActive: %s | Uptime: %lu s | IdleTime: %lu s | Timeout: %u s\n",
-            ksHasKey() ? "SIM" : "NAO", 
-            Bluefruit.connected() ? "SIM" : "NAO", 
-            lostModeActive ? "SIM" : "NAO", 
-            millis() / 1000, 
-            (millis() - lastCommunicationTime) / 1000, 
-            (unsigned int)(BLE_COMPANION_TIMEOUT_MS / 1000));
-        Serial.printf( ksHasKey() && !Bluefruit.connected() ? "PERDIDO" : "NAO_PERDIDO");
+        lastBatteryUpdate = millis();
+        blebas.write(readBatteryLevel());
     }
 
-    // Apenas monitora timeout se tiver um dono emparelhado e estiver desconectado
-    if (ksHasKey() && !Bluefruit.connected())
+    if (Bluefruit.connected())
+    {
+        lastCommunicationTime = millis();
+        if (lostModeActive)
+        {
+            bleSetLostModeState(false);
+        }
+    }
+    else if (ksHasKey())
     {
         if (!lostModeActive && (millis() - lastCommunicationTime > BLE_COMPANION_TIMEOUT_MS))
         {
-            Serial.println("[BLE] Timeout de comunicação excedido sem presença do dono!");
             bleSetLostModeState(true);
         }
     }

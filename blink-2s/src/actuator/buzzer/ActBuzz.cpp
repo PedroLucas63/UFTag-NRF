@@ -1,66 +1,73 @@
-#include "ActBuzz.h"
-#include "../ActConfig.h"
+#include "actuator/buzzer/ActBuzz.h"
+#include "actuator/ActConfig.h"
 #include "actuator/led/ActLed.h"
+#include "state-machine/StateMachine.h"
 #include <Arduino.h>
 
 static volatile uint32_t buzzOffTimeMs = 0;
 
-enum PipState { PIP_IDLE, PIP_ON, PIP_OFF};
-
-static PipState    pipState     = PIP_IDLE;
-static uint8_t     pipPin       = 0;
-static uint8_t     pipRemaining = 0;
-static uint16_t    pipOnMs      = 0;
-static uint16_t    pipOffMs     = 0;
-static uint32_t    pipNextMs    = 0;
-
-void actBuzzInit() {
+void actBuzzInit()
+{
     pinMode(ACT_PIN_BUZZER, OUTPUT);
-    noTone(ACT_PIN_BUZZER); 
+    noTone(ACT_PIN_BUZZER);
 }
 
-void actBuzzStart(uint16_t duration_ms) {
+void actBuzzStart(uint16_t duration_ms)
+{
     tone(ACT_PIN_BUZZER, ACT_BUZZ_FREQ_HZ);
     buzzOffTimeMs = millis() + duration_ms;
 }
 
-void actBuzzTick() {
-    if (buzzOffTimeMs != 0 && millis() >= buzzOffTimeMs) {
-        noTone(ACT_PIN_BUZZER);
-        buzzOffTimeMs = 0;
-    }
-
-    if(pipState == PIP_IDLE) return;
-    // if(millis() > pipNextMs) return;
-
-    if(pipState == PIP_ON){
-        noTone(pipPin);
-        pipState = PIP_OFF;
-        pipNextMs = millis() + pipOffMs;
-    } else{
-        pipRemaining--;
-        if(pipRemaining == 0){
-            pipState = PIP_IDLE;
-        }else{
-            tone(pipPin, ACT_BUZZ_FREQ_HZ);
-            pipNextMs = millis() + pipOnMs;
-            pipState = PIP_ON;
-        }
-    }
-}
-
-void actBuzzerPip(uint8_t pin, uint8_t times, uint16_t onMs, uint16_t offMs){
-    pipPin = pin;
-    pipRemaining = times;
-    pipOnMs = onMs;
-    pipOffMs = offMs;
-
-    tone(pipPin, ACT_BUZZ_FREQ_HZ);
-    pipNextMs = millis() + onMs;
-    pipState = PIP_ON;
-}
-
-void actBuzzOff() {
+void actBuzzOff()
+{
     noTone(ACT_PIN_BUZZER);
     buzzOffTimeMs = 0;
+}
+
+void runBuzzTick()
+{
+    static uint32_t buzzStartMs = 0;
+
+    if (currentState == StateMachine::BUZZING)
+    {
+        if (buzzStartMs == 0)
+        {
+            buzzStartMs = millis();
+            tone(ACT_PIN_BUZZER, ACT_BUZZ_FREQ_HZ);
+            actLedSetRed(true); // LED Vermelho sincronizado
+        }
+
+        uint32_t elapsed = millis() - buzzStartMs;
+
+        // 3 beeps de 0.75s (750ms) ligados e 0.25s (250ms) desligados (total: 3 segundos)
+        if (elapsed < 3000)
+        {
+            uint32_t cycleTime = elapsed % 1000;
+            if (cycleTime < 750)
+            {
+                // Beep ativo
+                tone(ACT_PIN_BUZZER, ACT_BUZZ_FREQ_HZ);
+                actLedSetRed(true);
+            }
+            else
+            {
+                // Silêncio
+                noTone(ACT_PIN_BUZZER);
+                actLedSetRed(false);
+            }
+        }
+        else
+        {
+            // Fim do ciclo sonoro
+            noTone(ACT_PIN_BUZZER);
+            actLedSetRed(false);
+            buzzStartMs = 0;
+            Serial.println("[BUZZER] Ciclo de alerta sonoro concluído.");
+            updateState(StateMachine::CONNECTED); // Retorna ao estado conectado
+        }
+    }
+    else
+    {
+        buzzStartMs = 0;
+    }
 }
