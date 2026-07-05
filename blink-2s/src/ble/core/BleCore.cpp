@@ -97,7 +97,7 @@ static void onSecured(uint16_t conn_hdl)
         }
 
         Serial.println("[BLE] Dono reconhecido! Conexão segura estabelecida.");
-        actLedBlinkN(ACT_PIN_LED_RED, 3, 750, 100);
+        //actLedBlinkN(ACT_PIN_LED_RED, 3, 750, 100);
         // actBuzzerPip(ACT_PIN_BUZZER, 2, 400, 100);
     }
     else
@@ -260,37 +260,34 @@ bool bleIsLostModeActive()
 
 void bleSetLostModeState(bool active)
 {
+    if (lostModeActive == active)
+        return; // Nada mudou, ignora
+
+    lostModeActive = active;
+    ksSaveLostState(active);
+    gattUpdateLostCharacteristic(active);
+
     if (active)
     {
-        lostModeActive = active;
-        ksSaveLostState(active);
-        
-        // Atualiza a característica GATT
-        gattUpdateLostCharacteristic(active);
+        Serial.println("\n==================================================");
+        Serial.println("[STATUS] !!! TAG DETECTADA FORA DE ALCANCE !!!");
+        Serial.println("[STATUS] A Tag UFTag acaba de entrar no MODO PERDIDO.");
+        Serial.println("[STATUS] Iniciando transmissao de pacotes com flag de busca ativa.");
+        Serial.println("==================================================\n");
+    }
+    else
+    {
+        Serial.println("\n==================================================");
+        Serial.println("[STATUS] !!! DONO PRESENTE — SAINDO DO MODO PERDIDO !!!");
+        Serial.println("[STATUS] A Tag UFTag saiu do MODO PERDIDO.");
+        Serial.println("[STATUS] Retornando ao modo de transmissao normal.");
+        Serial.println("==================================================\n");
+    }
 
-        if (active)
-        {
-            Serial.println("\n==================================================");
-            Serial.println("[STATUS] !!! TAG DETECTADA FORA DE ALCANCE !!!");
-            Serial.println("[STATUS] A Tag UFTag acaba de entrar no MODO PERDIDO.");
-            Serial.println("[STATUS] Iniciando transmissao de pacotes com flag de busca ativa.");
-            Serial.println("==================================================\n");
-        }
-        else
-        {
-            Serial.println("\n==================================================");
-            Serial.println("[STATUS] !!! TAG ENCONTRADA / DONO PRESENTE !!!");
-            Serial.println("[STATUS] A Tag UFTag saiu do MODO PERDIDO.");
-            Serial.println("[STATUS] Retornando ao modo de transmissao normal.");
-            Serial.println("==================================================\n");
-        }
-
-        // Se o dispositivo estiver desconectado, reiniciamos o advertising para atualizar a flag
-        if (!Bluefruit.connected())
-        {
-            Serial.println("[BLE] Reiniciando advertising com novo estado.");
-            bleAdvertisingStartNormal();
-        }
+    // Reinicia o advertising para atualizar a flag isLost no pacote
+    if (!Bluefruit.connected())
+    {
+        bleAdvertisingStartNormal();
     }
 }
 

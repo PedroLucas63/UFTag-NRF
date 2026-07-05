@@ -22,7 +22,7 @@ void setup()
     // btnInit();
 
     // Serial.println("[DEBUG] Inicializando Buzzer...");
-    // actBuzzInit();
+    actBuzzInit();
 
     Serial.println("[DEBUG] Inicializando KeyStore (Flash)...");
     ksInit();
