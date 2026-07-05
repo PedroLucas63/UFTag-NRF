@@ -52,12 +52,11 @@ static void onDisconnect(uint16_t conn_hdl, uint8_t reason)
     (void)conn_hdl;
     (void)reason;
     actLedStart(500);
-    // actBuzzStart(500);
-    bleAdvertisingSwitchType();
 
-
-    // Inicia contagem do tempo a partir da desconexão
+    // Reseta o timer — o bleTick vai disparar o modo perdido após o timeout
     lastCommunicationTime = millis();
+
+    bleAdvertisingSwitchType();
 }
 
 static void onPairComplete(uint16_t conn_hdl, uint8_t auth_status)
@@ -125,10 +124,10 @@ void bleInit()
     Bluefruit.Periph.setConnectCallback(onConnect);
     Bluefruit.Periph.setDisconnectCallback(onDisconnect);
 
-    // Inicializa a variável com o valor persistido na flash
-    lostModeActive = ksGetLostState();
+    lostModeActive = true;
+    lastCommunicationTime = 0;
 
-    Serial.println("[BLE] Stack initialized");
+    Serial.println("[BLE] Stack inicializada. Aguardando conexao do dono (MODO PERDIDO).");
 }
 
 void bleAdvertisingStart()
@@ -294,25 +293,25 @@ void bleSetLostModeState(bool active)
 void bleTick()
 {
     static unsigned long lastDebugPrint = 0;
-    if (millis() - lastDebugPrint > 2000) // a cada 2 segundos
+    if (millis() - lastDebugPrint > 2000)
     {
         lastDebugPrint = millis();
-        Serial.printf("[DEBUG_TICK] HasKey: %s | Connected: %s | LostModeActive: %s | Uptime: %lu s | IdleTime: %lu s | Timeout: %u s\n",
-            ksHasKey() ? "SIM" : "NAO", 
-            Bluefruit.connected() ? "SIM" : "NAO", 
-            lostModeActive ? "SIM" : "NAO", 
-            millis() / 1000, 
-            (millis() - lastCommunicationTime) / 1000, 
+        unsigned long idleSec = (millis() - lastCommunicationTime) / 1000;
+        Serial.printf("[TICK] HasKey:%s | Conn:%s | Lost:%s | Uptime:%lus | Idle:%lus | Timeout:%us\n",
+            ksHasKey() ? "S" : "N",
+            Bluefruit.connected() ? "S" : "N",
+            lostModeActive ? "S" : "N",
+            millis() / 1000,
+            idleSec,
             (unsigned int)(BLE_COMPANION_TIMEOUT_MS / 1000));
-        Serial.printf( ksHasKey() && !Bluefruit.connected() ? "PERDIDO" : "NAO_PERDIDO");
     }
 
-    // Apenas monitora timeout se tiver um dono emparelhado e estiver desconectado
-    if (ksHasKey() && !Bluefruit.connected())
+    // Transição para modo perdido: dono emparelhado, desconectado e timeout expirou
+    if (ksHasKey() && !Bluefruit.connected() && !lostModeActive)
     {
-        if (!lostModeActive && (millis() - lastCommunicationTime > BLE_COMPANION_TIMEOUT_MS))
+        if (millis() - lastCommunicationTime > BLE_COMPANION_TIMEOUT_MS)
         {
-            Serial.println("[BLE] Timeout de comunicação excedido sem presença do dono!");
+            Serial.println("[BLE] Timeout expirado — entrando em MODO PERDIDO.");
             bleSetLostModeState(true);
         }
     }
